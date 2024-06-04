@@ -25,7 +25,7 @@ export default function BottomComponent() {
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
 
   // variables
-  const snapPoints = useMemo(() => ["100%", "100%"], []);
+  const snapPoints = useMemo(() => ["25%", "50%", "100%"], []);
   const handlePresentModalPress = useCallback((mode: Mode) => {
     setMode(mode);
     bottomSheetModalRef.current?.present();

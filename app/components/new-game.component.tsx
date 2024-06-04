@@ -1,9 +1,11 @@
+import { useChess } from "@/hooks/chess";
 import { useChessAI } from "@/hooks/chessAi";
 import { FontAwesome6 } from "@expo/vector-icons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { BottomSheetModalMethods } from "@gorhom/bottom-sheet/lib/typescript/types";
-import React from "react";
+import React, { useEffect } from "react";
 import {
+  ActivityIndicator,
   StyleSheet,
   Text,
   TextInput,
@@ -21,9 +23,23 @@ export const NewGameComponent: React.FC<NewGameComponentProps> = ({
 }: NewGameComponentProps) => {
   const { setIsPlaying: setIsAiPlaying } = useChessAI();
 
+  const { userId, sendMessage, roomId } = useChess();
+
+  const [loading, setLoading] = React.useState(false);
+
   const randomOnline = () => {
-    ToastAndroid.show("Not connected to server!", ToastAndroid.SHORT);
-    return;
+    if (!userId) {
+      ToastAndroid.show("Not connected to server!", ToastAndroid.SHORT);
+      return;
+    }
+
+    sendMessage(
+      JSON.stringify({
+        type: "INIT_GAME",
+      })
+    );
+
+    setLoading(true);
   };
 
   const joinRoom = () => {
@@ -36,6 +52,12 @@ export const NewGameComponent: React.FC<NewGameComponentProps> = ({
     bottomSheet.current?.dismiss();
     setIsAiPlaying(true);
   };
+
+  useEffect(() => {
+    if (roomId) {
+      setLoading(false);
+    }
+  }, [roomId]);
   return (
     <View
       style={{
@@ -45,26 +67,42 @@ export const NewGameComponent: React.FC<NewGameComponentProps> = ({
         gap: 30,
       }}
     >
-      <TouchableOpacity onPress={playWithAI} style={styles.button}>
-        <MaterialCommunityIcons
-          name="robot-angry-outline"
-          size={24}
-          color="white"
-        />
-        <Text style={{ color: "white" }}>Play with AI</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={randomOnline} style={styles.button}>
-        <FontAwesome6 name="chess-knight" size={24} color="white" />
-        <Text style={{ color: "white" }}>Random Online</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={joinRoom} style={styles.button}>
-        <MaterialCommunityIcons
-          name="gamepad-variant-outline"
-          size={24}
-          color="white"
-        />
-        <Text style={{ color: "white" }}>Join Room</Text>
-      </TouchableOpacity>
+      {loading ? (
+        <View>
+          <ActivityIndicator size="large" color="#0000ff" />
+          <Text>Waiting for opponent</Text>
+        </View>
+      ) : (
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            justifyContent: "space-evenly",
+            gap: 30,
+          }}
+        >
+          <TouchableOpacity onPress={playWithAI} style={styles.button}>
+            <MaterialCommunityIcons
+              name="robot-angry-outline"
+              size={24}
+              color="white"
+            />
+            <Text style={{ color: "white" }}>Play with AI</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={randomOnline} style={styles.button}>
+            <FontAwesome6 name="chess-knight" size={24} color="white" />
+            <Text style={{ color: "white" }}>Random Online</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={joinRoom} style={styles.button}>
+            <MaterialCommunityIcons
+              name="gamepad-variant-outline"
+              size={24}
+              color="white"
+            />
+            <Text style={{ color: "white" }}>Join Room</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };

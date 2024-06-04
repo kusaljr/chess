@@ -1,13 +1,23 @@
-import { Chess, Square } from "chess.js";
-import React, { useCallback, useMemo, useState } from "react";
+import { Square } from "chess.js";
+import React, { useCallback, useState } from "react";
 import { Chessboard } from "react-chessboard";
 import { useWebSocket } from "../hooks/ws";
-import { PayloadType } from "../types";
+import { GameMode, PayloadType } from "../types";
 export default function Game() {
-  const { sendMessage, roomId, moveData, color } = useWebSocket();
+  const {
+    sendMessage,
+    roomId,
+    moveData,
+    color,
+    playing,
+    chessAi,
+    gameMode,
+    setMoveHistory,
+    chess,
+    setFen,
+    fen,
+  } = useWebSocket();
 
-  const chess = useMemo(() => new Chess(), []);
-  const [fen, setFen] = useState(chess.fen());
   const [over, setOver] = useState("");
   function onDrop(sourceSquare: Square, targetSquare: Square) {
     const moveData = {
@@ -29,6 +39,14 @@ export default function Game() {
 
     // illegal move
     if (move === null) return false;
+
+    if (gameMode === GameMode.AI) {
+      setMoveHistory((prev) => [...prev, moveData]);
+
+      setTimeout(() => {
+        chessAi(chess, setFen);
+      }, 1000);
+    }
 
     return true;
   }
@@ -68,7 +86,7 @@ export default function Game() {
   return (
     <div
       className={`w-[600px] z-0 ${
-        !roomId ? "pointer-events-none opacity-50" : ""
+        !playing ? "pointer-events-none opacity-50" : ""
       }`}
     >
       <Chessboard
@@ -76,6 +94,12 @@ export default function Game() {
         position={fen}
         onPieceDrop={onDrop}
       />
+
+      {over && (
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-800 p-4 rounded-lg text-white">
+          <h1>{over}</h1>
+        </div>
+      )}
     </div>
   );
 }

@@ -28,7 +28,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView>
-      <WebSocketProvider url="ws://localhost:8080">
+      <WebSocketProvider url="ws://192.168.1.66:8080">
         <View
           style={{
             backgroundColor: "black",

@@ -1,18 +1,23 @@
-import { Square } from "chess.js";
+import { GameMode } from "@chess/types";
+import { Chess, Square } from "chess.js";
 import React, {
   createContext,
   ReactNode,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import { BoardOrientation } from "react-chessboard/dist/chessboard/types";
+import { toast } from "sonner";
+import { minimax } from "./ai";
 
 interface MoveData {
   from: Square;
   to: Square;
 }
+
 interface WebSocketContextType {
   messages: string[];
   isOpen: boolean;
@@ -22,6 +27,17 @@ interface WebSocketContextType {
   userId: string | null;
   moveHistory: MoveData[];
   color: BoardOrientation | undefined;
+  playing: boolean;
+  setPlaying: (playing: boolean) => void;
+  chessAi: (game: Chess, setFen: React.Dispatch<string>) => void;
+  gameMode?: GameMode;
+  setGameMode: (mode: GameMode) => void;
+  setMoveHistory: React.Dispatch<React.SetStateAction<MoveData[]>>;
+  resetGame: () => void;
+  chess: Chess;
+
+  fen: string;
+  setFen: React.Dispatch<string>;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(
@@ -37,9 +53,15 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
   url,
   children,
 }) => {
+  const chess = useMemo(() => new Chess(), []);
+
+  const [fen, setFen] = useState(chess.fen());
+
   const [messages, setMessages] = useState<string[]>([]);
   const [isOpen, setIsOpen] = useState<boolean>(false);
 
+  const [playing, setPlaying] = useState<boolean>(false);
+  const [gameMode, setGameMode] = useState<GameMode | undefined>();
   const [moveData, setMoveData] = useState<MoveData | null>(null);
 
   const [moveHistory, setMoveHistory] = useState<MoveData[]>([]);
@@ -105,6 +127,54 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
     }
   };
 
+  const chessAi = () => {
+    const possibleMoves = chess.moves();
+    let bestMove = -Infinity;
+    let finalBestMove = -1;
+
+    // game over
+    if (possibleMoves.length === 0) return;
+
+    possibleMoves.forEach((_, i) => {
+      chess.move(possibleMoves[i]);
+
+      const value = minimax(chess, 2, -Infinity, Infinity, true);
+      chess.undo();
+
+      if (value >= bestMove) {
+        bestMove = value;
+        finalBestMove = i;
+      }
+    });
+
+    const move = chess.move(possibleMoves[finalBestMove]);
+
+    setMoveHistory((prevMoveHistory) => [
+      ...prevMoveHistory,
+      { from: move.from, to: move.to },
+    ]);
+    setFen(chess.fen());
+  };
+
+  const resetGame = () => {
+    if (gameMode === GameMode.AI) {
+      console.log("triggered");
+      setMoveHistory([]);
+      setMoveData(null);
+      setRoomId(null);
+      setPlaying(false);
+      setGameMode(undefined);
+
+      chess.reset();
+
+      setFen(chess.fen());
+
+      return;
+    }
+
+    return toast.error("You can't reset the game in multiplayer mode");
+  };
+
   return (
     <WebSocketContext.Provider
       value={{
@@ -116,6 +186,16 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
         moveData,
         userId,
         moveHistory,
+        playing,
+        setPlaying,
+        chessAi,
+        gameMode,
+        setGameMode,
+        setMoveHistory,
+        resetGame,
+        fen,
+        setFen,
+        chess,
       }}
     >
       {children}
