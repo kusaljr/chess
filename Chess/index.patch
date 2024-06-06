@@ -1,0 +1,244 @@
+diff --git a/node_modules/nodejs-mobile-react-native/index.d.ts b/node_modules/nodejs-mobile-react-native/index.d.ts
+index a9cf53e..c46d9b2 100644
+--- a/node_modules/nodejs-mobile-react-native/index.d.ts
++++ b/node_modules/nodejs-mobile-react-native/index.d.ts
+@@ -1,23 +1,24 @@
+ declare module "nodejs-mobile-react-native" {
++  import { EmitterSubscription } from "react-native";
+   export interface NodeJs {
+     /**
+      * Starts the nodejs-mobile runtime thread with a file inside the nodejs-project directory
+      * @param scriptFileName
+      * @param options
+      */
+-    start: (scriptFileName: string, options?: StartupOptions) => void
++    start: (scriptFileName: string, options?: StartupOptions) => void;
+     /**
+      * Starts the nodejs-mobile runtime thread with provided arguments
+      * @param command
+      * @param options
+      */
+-    startWithArgs: (command: string, options?: StartupOptions) => void
++    startWithArgs: (command: string, options?: StartupOptions) => void;
+     /**
+      * Starts the nodejs-mobile runtime thread with a script body
+      * @param scriptBody
+      * @param options
+      */
+-    startWithScript: (scriptBody: string, options?: StartupOptions) => void
++    startWithScript: (scriptBody: string, options?: StartupOptions) => void;
+     channel: Channel;
+   }
+   export interface Channel {
+@@ -28,7 +29,11 @@ declare module "nodejs-mobile-react-native" {
+      * and deserialized with JSON.parse of the type: `boolean`, `number`, `string`, `object`, or `array`
+      * @param context
+      */
+-    addListener: (event: string, callback: ChannelCallback, context?: any) => void;
++    addListener: (
++      event: string,
++      callback: ChannelCallback,
++      context?: any
++    ) => EmitterSubscription;
+     /**
+      * Removes the listener for the user-defined events raised from the nodejs-mobile side
+      * @param event
+@@ -36,7 +41,11 @@ declare module "nodejs-mobile-react-native" {
+      * and deserialized with JSON.parse of the type: `boolean`, `number`, `string`, `object`, or `array`
+      * @param context
+      */
+-    removeListener: (event: string, callback: ChannelCallback, context?: any) => void;
++    removeListener: (
++      event: string,
++      callback: ChannelCallback,
++      context?: any
++    ) => void;
+     /**
+      * Raises a user-defined event on the nodejs-mobile side
+      * - accepts any JS type that can be serialized with JSON.stringify and deserialized with JSON.parse
+@@ -61,16 +70,16 @@ declare module "nodejs-mobile-react-native" {
+    * - can accept multiple arguments
+    * @param arg can be of type: `boolean`, `number`, `string`, `object`, or `array`
+    */
+-  export type ChannelCallback = (...arg: any[]) => void
++  export type ChannelCallback = (...arg: any[]) => void;
+ 
+   /**
+    * Optional options for `start` and `startWithScript`
+    */
+   export interface StartupOptions {
+-    redirectOutputToLogcat?: boolean
++    redirectOutputToLogcat?: boolean;
+   }
+ 
+-  const nodejs: NodeJs
++  const nodejs: NodeJs;
+ 
+-  export default nodejs
++  export default nodejs;
+ }
+diff --git a/node_modules/nodejs-mobile-react-native/index.js b/node_modules/nodejs-mobile-react-native/index.js
+index fb09c48..f8d94d5 100644
+--- a/node_modules/nodejs-mobile-react-native/index.js
++++ b/node_modules/nodejs-mobile-react-native/index.js
+@@ -1,8 +1,8 @@
++import { NativeModules, NativeAppEventEmitter } from "react-native";
++var EventEmitter =
++  require("react-native/Libraries/vendor/emitter/EventEmitter").default;
+ 
+-import { NativeModules, NativeAppEventEmitter } from 'react-native';
+-var EventEmitter = require('react-native/Libraries/vendor/emitter/EventEmitter').default;
+-
+-const EVENT_CHANNEL = '_EVENTS_';
++const EVENT_CHANNEL = "_EVENTS_";
+ 
+ var channels = {};
+ 
+@@ -11,31 +11,31 @@ var channels = {};
+  * Any change made here should be ported to rn-bridge/index.js too.
+  * The MessageCodec class provides two static methods to serialize/deserialize
+  * the data sent through the events channel.
+-*/
++ */
+ class MessageCodec {
+   // This is a 'private' constructor, should only be used by this class
+   // static methods.
+   constructor(_event, ..._payload) {
+     this.event = _event;
+     this.payload = JSON.stringify(_payload);
+-  };
++  }
+ 
+   // Serialize the message payload and the message.
+   static serialize(event, ...payload) {
+     const envelope = new MessageCodec(event, ...payload);
+     // Return the serialized message, that can be sent through a channel.
+     return JSON.stringify(envelope);
+-  };
++  }
+ 
+   // Deserialize the message and the message payload.
+   static deserialize(message) {
+     var envelope = JSON.parse(message);
+-    if (typeof envelope.payload !== 'undefined') {
++    if (typeof envelope.payload !== "undefined") {
+       envelope.payload = JSON.parse(envelope.payload);
+     }
+     return envelope;
+-  };
+-};
++  }
++}
+ 
+ /**
+  * Channel super class.
+@@ -50,9 +50,8 @@ class ChannelSuper extends EventEmitter {
+     // the event to React Native.
+     this.emitLocal = this.emit;
+     delete this.emit;
+-  };
+-};
+-
++  }
++}
+ 
+ const { RNNodeJsMobile } = NativeModules;
+ 
+@@ -65,41 +64,48 @@ const { RNNodeJsMobile } = NativeModules;
+  */
+ class EventChannel extends ChannelSuper {
+   post(event, ...msg) {
+-    RNNodeJsMobile.sendMessage(this.name, MessageCodec.serialize(event, ...msg));
+-  };
++    RNNodeJsMobile.sendMessage(
++      this.name,
++      MessageCodec.serialize(event, ...msg)
++    );
++  }
+ 
+   // Posts a 'message' event, to be backward compatible with old code.
+   send(...msg) {
+-    this.post('message', ...msg);
+-  };
++    this.post("message", ...msg);
++  }
+ 
+   processData(data) {
+     // The data contains the serialized message envelope.
+     var envelope = MessageCodec.deserialize(data);
+-    this.emitLocal(envelope.event, ...(envelope.payload));
+-  };
+-};
++    this.emitLocal(envelope.event, ...envelope.payload);
++  }
++}
+ 
+-const start=function(mainFileName, options) {
+-  if (typeof mainFileName !== 'string') {
+-    throw new Error('nodejs-mobile-react-native\'s start expects to receive the main .js entrypoint filename, e.g.: nodejs.start("main.js");');
++const start = function (mainFileName, options) {
++  if (typeof mainFileName !== "string") {
++    throw new Error(
++      'nodejs-mobile-react-native\'s start expects to receive the main .js entrypoint filename, e.g.: nodejs.start("main.js");'
++    );
+   }
+   options = options || {};
+   RNNodeJsMobile.startNodeProject(mainFileName, options);
+ };
+ 
+-const startWithArgs=function(command, options) {
+-  if (typeof command !== 'string') {
+-    throw new Error('nodejs-mobile-react-native\'s startWithArgs expects to receive the main .js entrypoint filename with optional arguments, e.g.: nodejs.startWithArgs("main.js -c custom");');
++const startWithArgs = function (command, options) {
++  if (typeof command !== "string") {
++    throw new Error(
++      'nodejs-mobile-react-native\'s startWithArgs expects to receive the main .js entrypoint filename with optional arguments, e.g.: nodejs.startWithArgs("main.js -c custom");'
++    );
+   }
+   options = options || {};
+   RNNodeJsMobile.startNodeProjectWithArgs(command, options);
+ };
+ 
+-const startWithScript=function(script, options) {
++const startWithScript = function (script, options) {
+   options = options || {};
+   RNNodeJsMobile.startNodeWithScript(script, options);
+-}
++};
+ 
+ /*
+  * Dispatcher for all channels. This event is called by the plug-in
+@@ -107,19 +113,20 @@ const startWithScript=function(script, options) {
+  * The channelName field is the channel name.
+  * The message field is the data.
+  */
+-NativeAppEventEmitter.addListener("nodejs-mobile-react-native-message",
++const addListener = NativeAppEventEmitter.addListener(
++  "nodejs-mobile-react-native-message",
+   (e) => {
+     if (channels[e.channelName]) {
+       channels[e.channelName].processData(e.message);
+     } else {
+-      throw new Error('Error: Channel not found:', e.channelName);
++      throw new Error("Error: Channel not found:", e.channelName);
+     }
+   }
+ );
+ 
+ function registerChannel(channel) {
+   channels[channel.name] = channel;
+-};
++}
+ 
+ const eventChannel = new EventChannel(EVENT_CHANNEL);
+ registerChannel(eventChannel);
+@@ -128,7 +135,8 @@ const export_object = {
+   start: start,
+   startWithArgs: startWithArgs,
+   startWithScript: startWithScript,
+-  channel: eventChannel
++  addListener,
++  channel: eventChannel,
+ };
+ 
+ module.exports = export_object;

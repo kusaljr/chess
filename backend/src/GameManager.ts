@@ -82,9 +82,12 @@ export class GameManager {
                 user.socket.send(
                   GameStarted(opponent, game.gameId, Color.WHITE)
                 );
+
                 opponent.socket.send(
                   GameStarted(user, game.gameId, Color.BLACK)
                 );
+
+                console.log("Game Started");
                 SocketManager.getInstance().createRoomForGame(game.gameId, [
                   user,
                   opponent,

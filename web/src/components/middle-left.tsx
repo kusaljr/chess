@@ -111,6 +111,7 @@ export default function MiddleLeft() {
         </button>
         <button
           onClick={handleReset}
+          disabled={!playing}
           className={cn(
             "cursor-pointer flex items-center justify-center w-40 h-28 p-6 bg-gray-900 rounded-lg shadow hover:bg-gray-800",
             !playing && "bg-gray-800 cursor-not-allowed"
